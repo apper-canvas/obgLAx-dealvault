@@ -3,6 +3,7 @@ import { Routes, Route, NavLink } from 'react-router-dom'
 import { Sun, Moon, Menu, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Home from './pages/Home'
+import MyDeals from './pages/MyDeals'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -128,6 +129,7 @@ function App() {
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/deals" element={<MyDeals />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
