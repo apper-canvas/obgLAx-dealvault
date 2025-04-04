@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { 
   BarChart3, 
   PieChart, 
@@ -13,6 +14,8 @@ import {
 import MainFeature from '../components/MainFeature'
 
 const Home = () => {
+  const navigate = useNavigate()
+  
   // Sample data for demonstration
   const stats = [
     { 
@@ -78,6 +81,10 @@ const Home = () => {
       daysLeft: 12
     }
   ]
+
+  const handleAddNewDeal = () => {
+    navigate('/create-deal')
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -165,7 +172,10 @@ const Home = () => {
               </div>
             ))}
             
-            <button className="w-full py-3 border border-dashed border-surface-300 dark:border-surface-600 rounded-lg text-surface-500 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-700 transition flex items-center justify-center gap-2">
+            <button 
+              className="w-full py-3 border border-dashed border-surface-300 dark:border-surface-600 rounded-lg text-surface-500 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-700 transition flex items-center justify-center gap-2"
+              onClick={handleAddNewDeal}
+            >
               <Plus size={16} />
               <span>Add New Deal</span>
             </button>

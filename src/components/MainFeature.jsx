@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { 
   Plus, 
   X, 
@@ -13,6 +14,8 @@ import {
 } from 'lucide-react'
 
 const MainFeature = () => {
+  const navigate = useNavigate()
+  
   const [deals, setDeals] = useState([
     {
       id: 1,
@@ -171,6 +174,10 @@ const MainFeature = () => {
     return new Date(dateString).toLocaleDateString(undefined, options)
   }
   
+  const handleAddNewDeal = () => {
+    navigate('/create-deal')
+  }
+  
   return (
     <div className="card">
       <div className="p-6">
@@ -180,7 +187,7 @@ const MainFeature = () => {
             <span>My Lifetime Deals</span>
           </h2>
           <button 
-            onClick={toggleForm}
+            onClick={isFormOpen ? toggleForm : handleAddNewDeal}
             className={`btn ${isFormOpen ? 'btn-outline' : 'btn-primary'} flex items-center gap-2`}
           >
             {isFormOpen ? (
