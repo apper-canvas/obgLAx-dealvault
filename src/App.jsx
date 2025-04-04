@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, NavLink } from 'react-router-dom'
 import { Sun, Moon, Menu, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Home from './pages/Home'
@@ -29,6 +29,13 @@ function App() {
     setMobileMenuOpen(!mobileMenuOpen)
   }
 
+  // Function to determine active link styles
+  const getNavLinkClass = ({ isActive }) => {
+    return isActive 
+      ? "font-medium text-primary dark:text-primary-light transition" 
+      : "font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition"
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -45,10 +52,10 @@ function App() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <a href="/" className="font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition">Dashboard</a>
-            <a href="#deals" className="font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition">My Deals</a>
-            <a href="#analytics" className="font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition">Analytics</a>
-            <a href="#settings" className="font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition">Settings</a>
+            <NavLink to="/" className={getNavLinkClass}>Dashboard</NavLink>
+            <NavLink to="/deals" className={getNavLinkClass}>My Deals</NavLink>
+            <NavLink to="/analytics" className={getNavLinkClass}>Analytics</NavLink>
+            <NavLink to="/marketplaces" className={getNavLinkClass}>Marketplaces</NavLink>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -84,10 +91,30 @@ function App() {
               className="md:hidden border-t border-surface-200 dark:border-surface-700"
             >
               <div className="container mx-auto px-4 py-3 flex flex-col gap-3">
-                <a href="/" className="py-2 font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition">Dashboard</a>
-                <a href="#deals" className="py-2 font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition">My Deals</a>
-                <a href="#analytics" className="py-2 font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition">Analytics</a>
-                <a href="#settings" className="py-2 font-medium text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light transition">Settings</a>
+                <NavLink to="/" className={({ isActive }) => 
+                  `py-2 font-medium ${isActive 
+                    ? "text-primary dark:text-primary-light" 
+                    : "text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light"
+                  } transition`
+                }>Dashboard</NavLink>
+                <NavLink to="/deals" className={({ isActive }) => 
+                  `py-2 font-medium ${isActive 
+                    ? "text-primary dark:text-primary-light" 
+                    : "text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light"
+                  } transition`
+                }>My Deals</NavLink>
+                <NavLink to="/analytics" className={({ isActive }) => 
+                  `py-2 font-medium ${isActive 
+                    ? "text-primary dark:text-primary-light" 
+                    : "text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light"
+                  } transition`
+                }>Analytics</NavLink>
+                <NavLink to="/marketplaces" className={({ isActive }) => 
+                  `py-2 font-medium ${isActive 
+                    ? "text-primary dark:text-primary-light" 
+                    : "text-surface-600 hover:text-primary dark:text-surface-300 dark:hover:text-primary-light"
+                  } transition`
+                }>Marketplaces</NavLink>
                 <button className="mt-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-white font-medium transition">
                   Sign In
                 </button>

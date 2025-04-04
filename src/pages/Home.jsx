@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { 
   BarChart3, 
@@ -14,8 +13,6 @@ import {
 import MainFeature from '../components/MainFeature'
 
 const Home = () => {
-  const [activeTab, setActiveTab] = useState('dashboard')
-  
   // Sample data for demonstration
   const stats = [
     { 
@@ -90,35 +87,6 @@ const Home = () => {
         <p className="text-surface-600 dark:text-surface-400">
           Track, analyze, and optimize your lifetime deal investments
         </p>
-      </div>
-      
-      {/* Tab Navigation */}
-      <div className="mb-8 overflow-x-auto scrollbar-hide">
-        <div className="flex space-x-2 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl w-fit">
-          {['dashboard', 'deals', 'analytics', 'marketplaces'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all relative ${
-                activeTab === tab 
-                  ? 'text-white' 
-                  : 'text-surface-600 dark:text-surface-400 hover:text-surface-800 dark:hover:text-surface-200'
-              }`}
-            >
-              {activeTab === tab && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute inset-0 bg-primary rounded-lg"
-                  initial={false}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              )}
-              <span className="relative z-10 capitalize">
-                {tab}
-              </span>
-            </button>
-          ))}
-        </div>
       </div>
       
       {/* Stats Grid */}
