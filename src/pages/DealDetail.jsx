@@ -1,32 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { format, isPast, isFuture, isToday } from 'date-fns';
+import { format, parseISO, isValid, differenceInDays } from 'date-fns';
 import { 
   ChevronRight, 
+  Edit, 
+  Trash, 
   Calendar, 
   DollarSign, 
-  Building, 
   Tag, 
-  Clock, 
-  Edit, 
-  Trash2, 
-  ArrowLeft, 
+  ShoppingBag, 
   Star, 
-  FileText, 
-  Link as LinkIcon,
-  AlertTriangle,
-  ExternalLink
+  StarOff,
+  AlertCircle,
+  ArrowLeft
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useDeals } from '../context/DealContext';
-import DealTagBadge from '../components/DealTagBadge';
 
 const DealDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getDealById, toggleFavorite, deleteDeal } = useDeals();
+  const { getDealById, deleteDeal, toggleFavorite } = useDeals();
   const [deal, setDeal] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [error, setError] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   
   useEffect(() => {
     const fetchDeal = () => {
@@ -35,11 +33,15 @@ const DealDetail = () => {
         if (foundDeal) {
           setDeal(foundDeal);
         } else {
-          // Deal not found, redirect
-          navigate('/deals', { replace: true });
+          setError('Deal not found');
+          // Redirect after a delay
+          setTimeout(() => {
+            navigate('/deals', { replace: true });
+          }, 2000);
         }
-      } catch (error) {
-        console.error('Error fetching deal:', error);
+      } catch (err) {
+        setError('Error loading deal details');
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -48,39 +50,104 @@ const DealDetail = () => {
     fetchDeal();
   }, [id, getDealById, navigate]);
   
-  const handleToggleFavorite = () => {
-    toggleFavorite(id);
-    setDeal(prev => ({ ...prev, favorite: !prev.favorite }));
-  };
-  
-  const handleDeleteClick = () => {
-    setShowDeleteConfirm(true);
-  };
-  
-  const confirmDelete = () => {
-    deleteDeal(id);
-    navigate('/deals', { replace: true });
-  };
-  
-  const cancelDelete = () => {
-    setShowDeleteConfirm(false);
-  };
-  
-  const formatDateDisplay = (dateString) => {
+  const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
-      const date = new Date(dateString);
-      return format(date, 'MMM d, yyyy');
-    } catch (error) {
-      return 'Invalid Date';
+      const date = parseISO(dateString);
+      return isValid(date) ? format(date, 'MMMM d, yyyy') : 'N/A';
+    } catch (e) {
+      return 'N/A';
     }
   };
   
-  // Check if the deal is within the refund period
-  const isRefundable = (deal) => {
-    if (!deal || !deal.refundDeadline) return false;
-    const deadline = new Date(deal.refundDeadline);
-    return isFuture(deadline) || isToday(deadline);
+  const handleDeleteClick = () => {
+    setDeleteModalOpen(true);
+  };
+  
+  const confirmDelete = () => {
+    deleteDeal(parseInt(id));
+    setDeleteModalOpen(false);
+    navigate('/deals', { replace: true });
+  };
+  
+  const handleFavoriteToggle = () => {
+    toggleFavorite(parseInt(id));
+    // Update the local state to reflect the change
+    setDeal(prev => ({
+      ...prev,
+      favorite: !prev.favorite
+    }));
+  };
+  
+  // Calculate days left for refund or until expiry
+  const getTimeRemaining = () => {
+    if (!deal) return null;
+    
+    const now = new Date();
+    const refundDate = deal.refundDeadline ? parseISO(deal.refundDeadline) : null;
+    const expiryDate = deal.expiryDate ? parseISO(deal.expiryDate) : null;
+    
+    // If still refundable
+    if (refundDate && refundDate > now) {
+      const daysLeft = differenceInDays(refundDate, now);
+      return {
+        type: 'refund',
+        days: daysLeft,
+        text: `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left for refund`
+      };
+    }
+    
+    // If expiry date is set
+    if (expiryDate) {
+      if (expiryDate < now) {
+        return {
+          type: 'expired',
+          days: 0,
+          text: 'Deal has expired'
+        };
+      } else {
+        const daysLeft = differenceInDays(expiryDate, now);
+        return {
+          type: 'expiry',
+          days: daysLeft,
+          text: `${daysLeft} day${daysLeft !== 1 ? 's' : ''} until expiry`
+        };
+      }
+    }
+    
+    return null;
+  };
+  
+  // Determine status badge color
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'Active':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'Inactive':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+      case 'Refundable':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'Expiring Soon':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case 'Expired':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    }
+  };
+  
+  // Get time remaining badge style
+  const getTimeRemainingBadgeClass = (type) => {
+    switch (type) {
+      case 'refund':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'expiry':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case 'expired':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    }
   };
   
   if (loading) {
@@ -91,7 +158,23 @@ const DealDetail = () => {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span className="text-lg">Loading deal...</span>
+          <span className="text-lg">Loading deal details...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="p-6 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 rounded-lg">
+          <h2 className="text-xl font-bold mb-2">Error</h2>
+          <p>{error}</p>
+          <div className="mt-4">
+            <Link to="/deals" className="btn btn-outline">
+              Return to Deals
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -99,10 +182,12 @@ const DealDetail = () => {
   
   if (!deal) return null;
   
+  const timeRemaining = getTimeRemaining();
+  
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Breadcrumb */}
-      <div className="breadcrumb">
+      <div className="breadcrumb mb-6">
         <Link to="/" className="breadcrumb-item">Dashboard</Link>
         <span className="breadcrumb-separator">
           <ChevronRight size={16} />
@@ -114,200 +199,257 @@ const DealDetail = () => {
         <span className="text-surface-900 dark:text-surface-100">{deal.name}</span>
       </div>
       
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      {/* Deal Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate('/deals')}
-            className="p-2 rounded-lg bg-surface-100 dark:bg-surface-700 hover:bg-surface-200 dark:hover:bg-surface-600 transition"
-            aria-label="Go back"
-          >
-            <ArrowLeft size={20} />
-          </button>
           <h1 className="text-2xl md:text-3xl font-bold">{deal.name}</h1>
           <button 
-            onClick={handleToggleFavorite}
-            className={`p-2 rounded-lg ${deal.favorite ? 'text-yellow-500' : 'text-surface-400 hover:text-yellow-500'} transition`}
+            onClick={handleFavoriteToggle}
+            className={`p-1 text-${deal.favorite ? 'yellow-500' : 'surface-400'} hover:text-yellow-500 transition`}
             aria-label={deal.favorite ? "Remove from favorites" : "Add to favorites"}
           >
-            <Star size={20} fill={deal.favorite ? "currentColor" : "none"} />
+            {deal.favorite ? <Star size={24} fill="currentColor" /> : <StarOff size={24} />}
           </button>
         </div>
-        <div className="flex gap-3">
-          <Link to={`/deals/${id}/edit`} className="btn btn-outline flex items-center gap-2">
+        
+        <div className="flex items-center gap-3">
+          <Link 
+            to={`/deals/${id}/edit`}
+            className="btn btn-outline flex items-center gap-2"
+          >
             <Edit size={18} />
             <span>Edit</span>
           </Link>
-          <button onClick={handleDeleteClick} className="btn btn-outline border-red-300 hover:bg-red-50 text-red-600 dark:border-red-700 dark:hover:bg-red-900/20 dark:text-red-400 flex items-center gap-2">
-            <Trash2 size={18} />
+          <button 
+            onClick={handleDeleteClick}
+            className="btn btn-danger flex items-center gap-2"
+          >
+            <Trash size={18} />
             <span>Delete</span>
           </button>
         </div>
       </div>
       
-      {/* Status Banner - Show if refundable */}
-      {isRefundable(deal) && deal.status === "Refundable" && (
-        <div className="mb-8 p-4 bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700 rounded-lg flex items-center gap-3">
-          <AlertTriangle size={24} className="text-amber-500 dark:text-amber-400" />
-          <div>
-            <h3 className="font-semibold text-amber-800 dark:text-amber-300">Refund Period Active</h3>
-            <p className="text-amber-700 dark:text-amber-400">
-              This deal is still within its refund window which ends on {formatDateDisplay(deal.refundDeadline)}.
-            </p>
+      {/* Deal Info Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="card-neu p-6"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-surface-100 dark:bg-surface-700">
+              <DollarSign size={20} className="text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 dark:text-surface-400">Price</h3>
+              <p className="text-2xl font-bold">${deal.price.toFixed(2)}</p>
+            </div>
           </div>
-        </div>
-      )}
+          <div className="text-sm text-surface-600 dark:text-surface-400">
+            Purchased from <span className="font-medium text-surface-900 dark:text-surface-100">{deal.marketplace}</span>
+          </div>
+        </motion.div>
+        
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="card-neu p-6"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-surface-100 dark:bg-surface-700">
+              <Calendar size={20} className="text-secondary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 dark:text-surface-400">Purchase Date</h3>
+              <p className="text-xl font-bold">{formatDate(deal.purchaseDate)}</p>
+            </div>
+          </div>
+          {timeRemaining && (
+            <div className={`text-sm px-3 py-1 rounded-full inline-block ${getTimeRemainingBadgeClass(timeRemaining.type)}`}>
+              {timeRemaining.text}
+            </div>
+          )}
+        </motion.div>
+        
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="card-neu p-6"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-surface-100 dark:bg-surface-700">
+              <Tag size={20} className="text-accent" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 dark:text-surface-400">Status</h3>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusBadgeClass(deal.status)}`}>
+                  {deal.status}
+                </span>
+              </div>
+            </div>
+          </div>
+          {deal.category && (
+            <div className="text-sm text-surface-600 dark:text-surface-400">
+              Category: <span className="font-medium text-surface-900 dark:text-surface-100">{deal.category}</span>
+            </div>
+          )}
+        </motion.div>
+      </div>
       
-      {/* Deal Info Card */}
-      <div className="card mb-8">
-        <div className="p-6 border-b border-surface-200 dark:border-surface-700 flex flex-wrap items-center justify-between gap-4">
-          <DealTagBadge status={deal.status} />
-          <div className="flex items-center gap-3">
-            <div className="badge badge-primary">{deal.marketplace}</div>
-            <div className="badge badge-secondary">{deal.category}</div>
+      {/* Deal Details */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Main Details */}
+        <div className="lg:col-span-2">
+          <div className="card p-6 mb-6">
+            <h2 className="text-xl font-bold mb-4">Deal Details</h2>
+            
+            {deal.description ? (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-surface-500 dark:text-surface-400 mb-2">Description</h3>
+                <p className="text-surface-800 dark:text-surface-200">{deal.description}</p>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 bg-surface-50 dark:bg-surface-700 rounded-lg border border-dashed border-surface-200 dark:border-surface-600 text-surface-500 dark:text-surface-400 text-center">
+                No description available
+              </div>
+            )}
+            
+            {deal.notes ? (
+              <div>
+                <h3 className="text-sm font-medium text-surface-500 dark:text-surface-400 mb-2">Notes</h3>
+                <div className="p-4 bg-surface-50 dark:bg-surface-700 rounded-lg">
+                  <p className="text-surface-800 dark:text-surface-200 whitespace-pre-line">{deal.notes}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          
+          {/* Important Dates */}
+          <div className="card p-6">
+            <h2 className="text-xl font-bold mb-4">Important Dates</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Calendar size={18} className="text-surface-400" />
+                  <span className="text-surface-700 dark:text-surface-300">Purchase Date</span>
+                </div>
+                <span className="font-medium">{formatDate(deal.purchaseDate)}</span>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Calendar size={18} className={new Date(deal.refundDeadline) > new Date() ? "text-blue-500" : "text-surface-400"} />
+                  <span className="text-surface-700 dark:text-surface-300">Refund Deadline</span>
+                </div>
+                <span className="font-medium">{formatDate(deal.refundDeadline)}</span>
+              </div>
+              
+              {deal.expiryDate && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Calendar size={18} className={new Date(deal.expiryDate) > new Date() ? "text-yellow-500" : "text-red-500"} />
+                    <span className="text-surface-700 dark:text-surface-300">Expiry Date</span>
+                  </div>
+                  <span className="font-medium">{formatDate(deal.expiryDate)}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         
-        {/* Deal Details */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h2 className="text-lg font-semibold mb-4">Deal Information</h2>
-              
-              <div className="detail-row">
-                <div className="detail-label">
-                  <div className="flex items-center gap-2">
-                    <DollarSign size={16} className="text-primary" />
-                    <span>Price</span>
-                  </div>
-                </div>
-                <div className="detail-value font-semibold">${deal.price.toFixed(2)}</div>
-              </div>
-              
-              <div className="detail-row">
-                <div className="detail-label">
-                  <div className="flex items-center gap-2">
-                    <Building size={16} className="text-primary" />
-                    <span>Marketplace</span>
-                  </div>
-                </div>
-                <div className="detail-value">{deal.marketplace}</div>
-              </div>
-              
-              <div className="detail-row">
-                <div className="detail-label">
-                  <div className="flex items-center gap-2">
-                    <Tag size={16} className="text-primary" />
-                    <span>Category</span>
-                  </div>
-                </div>
-                <div className="detail-value">{deal.category}</div>
-              </div>
-              
-              <div className="detail-row">
-                <div className="detail-label">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-primary" />
-                    <span>Purchase Date</span>
-                  </div>
-                </div>
-                <div className="detail-value">{formatDateDisplay(deal.purchaseDate)}</div>
-              </div>
-              
-              <div className="detail-row">
-                <div className="detail-label">
-                  <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-primary" />
-                    <span>Refund Deadline</span>
-                  </div>
-                </div>
-                <div className="detail-value">{formatDateDisplay(deal.refundDeadline)}</div>
-              </div>
-              
-              <div className="detail-row">
-                <div className="detail-label">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-primary" />
-                    <span>Expiry Date</span>
-                  </div>
-                </div>
-                <div className="detail-value">
-                  {deal.expiryDate ? formatDateDisplay(deal.expiryDate) : 'Lifetime Deal (No Expiry)'}
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h2 className="text-lg font-semibold mb-4">Additional Information</h2>
-              
-              <div className="detail-row">
-                <div className="detail-label">
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-primary" />
-                    <span>Description</span>
-                  </div>
-                </div>
-                <div className="detail-value">
-                  {deal.description || 'No description provided'}
-                </div>
-              </div>
-              
-              <div className="detail-row">
-                <div className="detail-label">
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-primary" />
-                    <span>Notes</span>
-                  </div>
-                </div>
-                <div className="detail-value whitespace-pre-line">
-                  {deal.notes || 'No notes added'}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Actions Card */}
-      <div className="card mb-8">
-        <div className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Deal Actions</h2>
-          <div className="flex flex-wrap gap-4">
-            <a 
-              href={`https://${deal.marketplace.toLowerCase().replace(' ', '')}.com`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="btn btn-outline flex items-center gap-2"
-            >
-              <ExternalLink size={18} />
-              <span>Visit Marketplace</span>
-            </a>
-            <button className="btn btn-outline flex items-center gap-2">
-              <LinkIcon size={18} />
-              <span>Copy Deal Link</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-surface-800 rounded-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">Delete Deal?</h3>
-            <p className="mb-6 text-surface-600 dark:text-surface-400">
-              Are you sure you want to delete <span className="font-semibold text-surface-900 dark:text-surface-100">{deal.name}</span>? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-4">
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          {/* Quick Actions */}
+          <div className="card p-6 mb-6">
+            <h2 className="text-lg font-bold mb-4">Quick Actions</h2>
+            <div className="space-y-3">
+              <Link 
+                to={`/deals/${id}/edit`}
+                className="flex items-center justify-between p-3 rounded-lg bg-surface-50 hover:bg-surface-100 dark:bg-surface-700 dark:hover:bg-surface-600 transition"
+              >
+                <span className="font-medium">Edit Deal</span>
+                <Edit size={18} />
+              </Link>
               <button 
-                onClick={cancelDelete}
+                onClick={handleFavoriteToggle}
+                className="w-full flex items-center justify-between p-3 rounded-lg bg-surface-50 hover:bg-surface-100 dark:bg-surface-700 dark:hover:bg-surface-600 transition"
+              >
+                <span className="font-medium">{deal.favorite ? "Remove from Favorites" : "Add to Favorites"}</span>
+                {deal.favorite ? <Star size={18} /> : <StarOff size={18} />}
+              </button>
+              <button 
+                onClick={handleDeleteClick}
+                className="w-full flex items-center justify-between p-3 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-800 dark:text-red-400 transition"
+              >
+                <span className="font-medium">Delete Deal</span>
+                <Trash size={18} />
+              </button>
+            </div>
+          </div>
+          
+          {/* Refund Information */}
+          {new Date(deal.refundDeadline) > new Date() && (
+            <div className="card p-6 mb-6 border-l-4 border-blue-500 dark:border-blue-600">
+              <div className="flex items-start gap-3">
+                <AlertCircle size={24} className="text-blue-500 mt-1" />
+                <div>
+                  <h3 className="font-bold text-lg mb-1">Refund Available</h3>
+                  <p className="text-surface-600 dark:text-surface-400 mb-3">
+                    This deal is still within its refund window. You have {differenceInDays(new Date(deal.refundDeadline), new Date())} days left.
+                  </p>
+                  <div className="text-sm font-medium">
+                    Refund deadline: {formatDate(deal.refundDeadline)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Related Information */}
+          <div className="card p-6">
+            <h2 className="text-lg font-bold mb-4">Marketplace</h2>
+            <div className="flex items-center gap-3 p-4 bg-surface-50 dark:bg-surface-700 rounded-lg">
+              <ShoppingBag size={24} className="text-surface-400" />
+              <div>
+                <h3 className="font-medium mb-1">{deal.marketplace}</h3>
+                <p className="text-sm text-surface-500 dark:text-surface-400">Visit the marketplace to manage your purchase</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Back Navigation */}
+      <div className="mb-8">
+        <Link to="/deals" className="btn btn-outline flex items-center gap-2">
+          <ArrowLeft size={18} />
+          <span>Back to All Deals</span>
+        </Link>
+      </div>
+      
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-surface-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-2">Delete Deal</h3>
+            <p className="text-surface-600 dark:text-surface-400 mb-6">
+              Are you sure you want to delete <span className="font-medium">{deal.name}</span>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setDeleteModalOpen(false)}
                 className="btn btn-outline"
               >
                 Cancel
               </button>
               <button 
                 onClick={confirmDelete}
-                className="btn bg-red-600 hover:bg-red-700 text-white"
+                className="btn btn-danger"
               >
                 Delete Deal
               </button>

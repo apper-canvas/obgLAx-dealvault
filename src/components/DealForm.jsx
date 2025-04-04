@@ -1,381 +1,295 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  AlertCircle,
-  Info,
-  Check,
-  Calendar,
-  DollarSign,
-  Tag,
-  FileText,
-  Clock
-} from 'lucide-react';
-import { format } from 'date-fns';
+import { CalendarIcon, InfoIcon } from 'lucide-react';
 
-const DealForm = ({ initialData = {}, onSubmit, formTitle, submitButtonText, isEdit = false }) => {
+const DealForm = ({ initialData, onSubmit, formTitle = "Deal Information", submitButtonText = "Save", isEdit = false }) => {
   const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   
-  const defaultFormData = {
+  // Form state with default values or initial data
+  const [formData, setFormData] = useState({
     name: '',
-    marketplace: '',
+    marketplace: 'AppSumo',
     price: '',
-    purchaseDate: format(new Date(), 'yyyy-MM-dd'),
-    refundWindow: '30',
+    purchaseDate: new Date().toISOString().split('T')[0],
     expiryDate: '',
-    category: '',
     status: 'Active',
+    favorite: false,
+    category: '',
     description: '',
     notes: '',
-    favorite: false
-  };
-  
-  const [formData, setFormData] = useState({...defaultFormData, ...initialData});
-  const [formErrors, setFormErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  
-  // Update form when initialData changes (for edit mode)
+    refundWindow: '30'
+  });
+
+  // Initialize form with provided data if editing
   useEffect(() => {
-    if (initialData && Object.keys(initialData).length > 0) {
-      setFormData({...defaultFormData, ...initialData});
+    if (initialData) {
+      setFormData({
+        name: initialData.name || '',
+        marketplace: initialData.marketplace || 'AppSumo',
+        price: initialData.price || '',
+        purchaseDate: initialData.purchaseDate || new Date().toISOString().split('T')[0],
+        expiryDate: initialData.expiryDate || '',
+        status: initialData.status || 'Active',
+        favorite: initialData.favorite || false,
+        category: initialData.category || '',
+        description: initialData.description || '',
+        notes: initialData.notes || '',
+        refundWindow: initialData.refundWindow || '30'
+      });
     }
   }, [initialData]);
-  
-  const marketplaces = [
-    "AppSumo", "DealMirror", "SaasMantra", "Rockethub", 
-    "DealFuel", "Dealify", "PitchGround", "Prime Club", "StackSocial", "Other"
-  ];
-  
-  const categories = [
-    "Design", "Development", "Marketing", "SEO", "AI Tools", 
-    "Productivity", "Business", "Education", "Finance", "Other"
-  ];
-  
-  const statuses = [
-    "Active", "Refundable", "Expired", "Expiring Soon", "Inactive"
-  ];
-  
+
+  // Handle input changes
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    
-    // Clear error for this field if it exists
-    if (formErrors[name]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
   };
-  
+
+  // Form validation
   const validateForm = () => {
-    const errors = {};
-    
-    if (!formData.name.trim()) errors.name = "Deal name is required";
-    if (!formData.marketplace) errors.marketplace = "Marketplace is required";
-    if (!formData.price || isNaN(formData.price) || Number(formData.price) <= 0) {
-      errors.price = "Valid price is required";
+    if (!formData.name.trim()) {
+      setFormError('Deal name is required');
+      return false;
     }
-    if (!formData.purchaseDate) errors.purchaseDate = "Purchase date is required";
-    if (!formData.category) errors.category = "Category is required";
     
-    return errors;
+    if (!formData.marketplace.trim()) {
+      setFormError('Marketplace is required');
+      return false;
+    }
+    
+    if (!formData.price || isNaN(formData.price) || Number(formData.price) <= 0) {
+      setFormError('Please enter a valid price');
+      return false;
+    }
+    
+    if (!formData.purchaseDate) {
+      setFormError('Purchase date is required');
+      return false;
+    }
+    
+    setFormError(null);
+    return true;
   };
-  
+
+  // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
+    if (!validateForm()) return;
     
     setIsSubmitting(true);
     
     try {
-      // Process form data
-      const dealData = {
+      // Format the data
+      const submissionData = {
         ...formData,
-        price: parseFloat(formData.price)
+        price: Number(formData.price)
       };
       
-      // Call the onSubmit callback
-      await onSubmit(dealData);
+      const success = await onSubmit(submissionData);
       
-      setSuccessMessage(isEdit ? "Deal updated successfully!" : "Deal added successfully!");
-      
-      // Reset form after successful submission (only for create, not edit)
-      if (!isEdit) {
-        setFormData(defaultFormData);
+      if (success) {
+        setSuccessMessage(isEdit ? 'Deal updated successfully!' : 'Deal created successfully!');
+        
+        // Redirect after a brief delay to show success message
+        setTimeout(() => {
+          navigate(isEdit ? `/deals/${initialData.id}` : '/deals');
+        }, 1500);
       }
-      
-      // Redirect after a delay
-      setTimeout(() => {
-        navigate('/deals');
-      }, 2000);
     } catch (error) {
-      console.error("Error submitting form:", error);
+      console.error('Error submitting form:', error);
+      setFormError('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
-  
-  const handleCancel = () => {
-    navigate('/deals');
-  };
-  
+
   return (
-    <div className="form-section">
-      <h2 className="text-xl font-semibold mb-6">{formTitle}</h2>
+    <div className="card p-6">
+      <h2 className="text-xl font-bold mb-6">{formTitle}</h2>
       
+      {/* Success message */}
       {successMessage && (
-        <div className="mb-6 p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-lg flex items-center gap-2">
-          <Check size={18} />
-          <span>{successMessage}</span>
+        <div className="mb-6 p-4 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-lg">
+          {successMessage}
+        </div>
+      )}
+      
+      {/* Error message */}
+      {formError && (
+        <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 rounded-lg">
+          {formError}
         </div>
       )}
       
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            <div>
-              <label className="form-label" htmlFor="name">
-                Deal Name*
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className={`input-field ${formErrors.name ? 'border-red-500 dark:border-red-500' : ''}`}
-                placeholder="e.g. WebFlow Master Suite"
-              />
-              {formErrors.name && (
-                <p className="form-error">
-                  <AlertCircle size={14} />
-                  <span>{formErrors.name}</span>
-                </p>
-              )}
-            </div>
-            
-            <div>
-              <label className="form-label" htmlFor="marketplace">
-                Marketplace*
-              </label>
-              <select
-                id="marketplace"
-                name="marketplace"
-                value={formData.marketplace}
-                onChange={handleChange}
-                className={`select-field ${formErrors.marketplace ? 'border-red-500 dark:border-red-500' : ''}`}
-              >
-                <option value="">Select marketplace</option>
-                {marketplaces.map(marketplace => (
-                  <option key={marketplace} value={marketplace}>
-                    {marketplace}
-                  </option>
-                ))}
-              </select>
-              {formErrors.marketplace && (
-                <p className="form-error">
-                  <AlertCircle size={14} />
-                  <span>{formErrors.marketplace}</span>
-                </p>
-              )}
-            </div>
-            
-            <div>
-              <label className="form-label" htmlFor="price">
-                Price ($)*
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <DollarSign size={16} className="text-surface-500" />
-                </div>
-                <input
-                  type="number"
-                  id="price"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  className={`input-field pl-9 ${formErrors.price ? 'border-red-500 dark:border-red-500' : ''}`}
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              {formErrors.price && (
-                <p className="form-error">
-                  <AlertCircle size={14} />
-                  <span>{formErrors.price}</span>
-                </p>
-              )}
-            </div>
-            
-            <div>
-              <label className="form-label" htmlFor="purchaseDate">
-                Purchase Date*
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Calendar size={16} className="text-surface-500" />
-                </div>
-                <input
-                  type="date"
-                  id="purchaseDate"
-                  name="purchaseDate"
-                  value={formData.purchaseDate}
-                  onChange={handleChange}
-                  className={`input-field pl-9 ${formErrors.purchaseDate ? 'border-red-500 dark:border-red-500' : ''}`}
-                />
-              </div>
-              {formErrors.purchaseDate && (
-                <p className="form-error">
-                  <AlertCircle size={14} />
-                  <span>{formErrors.purchaseDate}</span>
-                </p>
-              )}
-            </div>
-          </div>
-          
-          {/* Right Column */}
-          <div className="space-y-6">
-            <div>
-              <label className="form-label" htmlFor="refundWindow">
-                Refund Window (days)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Clock size={16} className="text-surface-500" />
-                </div>
-                <select
-                  id="refundWindow"
-                  name="refundWindow"
-                  value={formData.refundWindow}
-                  onChange={handleChange}
-                  className="select-field pl-9"
-                >
-                  <option value="14">14 days</option>
-                  <option value="30">30 days</option>
-                  <option value="60">60 days</option>
-                  <option value="90">90 days</option>
-                </select>
-              </div>
-            </div>
-            
-            <div>
-              <label className="form-label" htmlFor="expiryDate">
-                Expiry Date (if applicable)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Calendar size={16} className="text-surface-500" />
-                </div>
-                <input
-                  type="date"
-                  id="expiryDate"
-                  name="expiryDate"
-                  value={formData.expiryDate || ''}
-                  onChange={handleChange}
-                  className="input-field pl-9"
-                />
-              </div>
-              <p className="form-hint">Leave blank for lifetime deals with no expiry</p>
-            </div>
-            
-            <div>
-              <label className="form-label" htmlFor="category">
-                Category*
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Tag size={16} className="text-surface-500" />
-                </div>
-                <select
-                  id="category"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className={`select-field pl-9 ${formErrors.category ? 'border-red-500 dark:border-red-500' : ''}`}
-                >
-                  <option value="">Select category</option>
-                  {categories.map(category => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {formErrors.category && (
-                <p className="form-error">
-                  <AlertCircle size={14} />
-                  <span>{formErrors.category}</span>
-                </p>
-              )}
-            </div>
-            
-            <div>
-              <label className="form-label" htmlFor="status">
-                Status
-              </label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="select-field"
-              >
-                {statuses.map(status => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-        
-        {/* Full Width Fields */}
-        <div className="space-y-6 mb-6">
-          <div>
-            <label className="form-label" htmlFor="description">
-              Description
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Deal Name */}
+          <div className="col-span-2">
+            <label htmlFor="name" className="form-label">
+              Deal Name <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
-              <div className="absolute top-3 left-3 pointer-events-none">
-                <FileText size={16} className="text-surface-500" />
-              </div>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description || ''}
-                onChange={handleChange}
-                className="input-field pl-9 min-h-[100px]"
-                placeholder="Describe what this deal includes..."
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label className="form-label" htmlFor="notes">
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              name="notes"
-              value={formData.notes || ''}
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
               onChange={handleChange}
-              className="input-field min-h-[80px]"
-              placeholder="Any personal notes about this deal..."
+              className="form-input"
+              placeholder="e.g. DesignPro Suite"
+              required
             />
           </div>
           
+          {/* Marketplace */}
+          <div>
+            <label htmlFor="marketplace" className="form-label">
+              Marketplace <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="marketplace"
+              name="marketplace"
+              value={formData.marketplace}
+              onChange={handleChange}
+              className="form-select"
+              required
+            >
+              <option value="AppSumo">AppSumo</option>
+              <option value="StackSocial">StackSocial</option>
+              <option value="DealMirror">DealMirror</option>
+              <option value="PitchGround">PitchGround</option>
+              <option value="Dealify">Dealify</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          
+          {/* Price */}
+          <div>
+            <label htmlFor="price" className="form-label">
+              Price (USD) <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <span className="text-surface-400">$</span>
+              </div>
+              <input
+                type="number"
+                id="price"
+                name="price"
+                value={formData.price}
+                onChange={handleChange}
+                className="form-input pl-8"
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+          </div>
+          
+          {/* Category */}
+          <div>
+            <label htmlFor="category" className="form-label">Category</label>
+            <select
+              id="category"
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              className="form-select"
+            >
+              <option value="">Select a category</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Design">Design</option>
+              <option value="Development">Development</option>
+              <option value="Business">Business</option>
+              <option value="AI Tools">AI Tools</option>
+              <option value="Productivity">Productivity</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          
+          {/* Status */}
+          <div>
+            <label htmlFor="status" className="form-label">Status</label>
+            <select
+              id="status"
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="form-select"
+            >
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Refundable">Refundable</option>
+              <option value="Expiring Soon">Expiring Soon</option>
+              <option value="Expired">Expired</option>
+            </select>
+          </div>
+          
+          {/* Purchase Date */}
+          <div>
+            <label htmlFor="purchaseDate" className="form-label">
+              Purchase Date <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <CalendarIcon size={16} className="text-surface-400" />
+              </div>
+              <input
+                type="date"
+                id="purchaseDate"
+                name="purchaseDate"
+                value={formData.purchaseDate}
+                onChange={handleChange}
+                className="form-input pl-10"
+                required
+              />
+            </div>
+          </div>
+          
+          {/* Expiry Date */}
+          <div>
+            <label htmlFor="expiryDate" className="form-label">Expiry Date</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <CalendarIcon size={16} className="text-surface-400" />
+              </div>
+              <input
+                type="date"
+                id="expiryDate"
+                name="expiryDate"
+                value={formData.expiryDate}
+                onChange={handleChange}
+                className="form-input pl-10"
+              />
+            </div>
+          </div>
+          
+          {/* Refund Window */}
+          <div>
+            <label htmlFor="refundWindow" className="form-label">Refund Window (days)</label>
+            <input
+              type="number"
+              id="refundWindow"
+              name="refundWindow"
+              value={formData.refundWindow}
+              onChange={handleChange}
+              className="form-input"
+              min="0"
+            />
+            <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
+              Number of days you can request a refund
+            </p>
+          </div>
+          
+          {/* Favorite */}
           <div className="flex items-center">
             <input
               type="checkbox"
@@ -383,48 +297,75 @@ const DealForm = ({ initialData = {}, onSubmit, formTitle, submitButtonText, isE
               name="favorite"
               checked={formData.favorite}
               onChange={handleChange}
-              className="h-4 w-4 text-primary focus:ring-primary border-surface-300 dark:border-surface-600 rounded"
+              className="form-checkbox"
             />
-            <label htmlFor="favorite" className="ml-2 block text-sm">
+            <label htmlFor="favorite" className="ml-2 text-surface-700 dark:text-surface-300">
               Mark as favorite
             </label>
           </div>
+          
+          {/* Description */}
+          <div className="col-span-2">
+            <label htmlFor="description" className="form-label">Description</label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              className="form-textarea"
+              rows="3"
+              placeholder="Brief description of what this deal includes"
+            ></textarea>
+          </div>
+          
+          {/* Notes */}
+          <div className="col-span-2">
+            <label htmlFor="notes" className="form-label">
+              Notes
+              <span className="ml-1 text-surface-500">
+                <InfoIcon size={14} className="inline" />
+                <span className="ml-1 text-sm font-normal">
+                  (private, e.g., license keys, redemption codes, etc.)
+                </span>
+              </span>
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              className="form-textarea"
+              rows="3"
+              placeholder="Any private notes, codes, or important details"
+            ></textarea>
+          </div>
         </div>
         
-        <div className="flex items-center justify-between mt-8">
-          <div className="flex items-center gap-1 text-sm text-surface-500 dark:text-surface-400">
-            <Info size={14} />
-            <span>Fields marked with * are required</span>
-          </div>
-          <div className="flex gap-4">
-            <button 
-              type="button" 
-              onClick={handleCancel}
-              className="btn btn-outline"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              className="btn btn-primary"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Saving...</span>
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Check size={18} />
-                  <span>{submitButtonText}</span>
-                </span>
-              )}
-            </button>
-          </div>
+        {/* Form Actions */}
+        <div className="flex justify-end gap-4 mt-8">
+          <button
+            type="button"
+            onClick={() => navigate('/deals')}
+            className="btn btn-outline"
+            disabled={isSubmitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Processing...</span>
+              </div>
+            ) : submitButtonText}
+          </button>
         </div>
       </form>
     </div>

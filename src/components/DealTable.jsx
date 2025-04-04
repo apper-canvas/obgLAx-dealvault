@@ -1,183 +1,242 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, MoreHorizontal, Star, Download, Edit, Trash2 } from 'lucide-react';
-import DealTagBadge from './DealTagBadge';
-import { format } from 'date-fns';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { 
+  Star, 
+  StarOff, 
+  ArrowUpDown, 
+  Eye, 
+  Edit, 
+  Trash, 
+  MoreHorizontal 
+} from 'lucide-react';
+import { useDeals } from '../context/DealContext';
+import { format, parseISO, isValid } from 'date-fns';
 
 const DealTable = ({ deals }) => {
-  const [sortField, setSortField] = useState('name');
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [actionsOpenFor, setActionsOpenFor] = useState(null);
-
-  // Function to toggle sort direction or set a new sort field
-  const handleSort = (field) => {
-    if (field === sortField) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  // Get sort icon based on field and current sort state
-  const getSortIcon = (field) => {
-    if (field !== sortField) return null;
-    return sortDirection === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />;
-  };
-
-  // Sort deals based on current sort field and direction
-  const sortedDeals = [...deals].sort((a, b) => {
-    let valA = a[sortField];
-    let valB = b[sortField];
-    
-    // Handle special cases (date fields, nested objects, etc.)
-    if (sortField === 'purchaseDate' || sortField === 'refundDeadline' || sortField === 'expiryDate') {
-      valA = new Date(valA);
-      valB = new Date(valB);
-    }
-    
-    if (valA === valB) return 0;
-    
-    if (sortDirection === 'asc') {
-      return valA > valB ? 1 : -1;
-    } else {
-      return valA < valB ? 1 : -1;
-    }
-  });
-
-  // Toggle actions dropdown for a specific deal
-  const toggleActions = (dealId) => {
-    if (actionsOpenFor === dealId) {
-      setActionsOpenFor(null);
-    } else {
-      setActionsOpenFor(dealId);
-    }
-  };
+  const { toggleFavorite, deleteDeal } = useDeals();
+  const [sortConfig, setSortConfig] = useState({ key: 'purchaseDate', direction: 'desc' });
+  const [showConfirmDelete, setShowConfirmDelete] = useState(null);
 
   // Format date for display
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
     try {
-      return format(new Date(dateString), 'MMM d, yyyy');
+      const date = parseISO(dateString);
+      return isValid(date) ? format(date, 'MMM d, yyyy') : 'N/A';
     } catch (e) {
-      return 'Invalid Date';
+      return 'N/A';
     }
   };
 
+  // Handle sorting
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  // Get status badge color
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'Active':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'Inactive':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+      case 'Refundable':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'Expiring Soon':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case 'Expired':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    }
+  };
+  
+  // Sort the deals
+  const sortedDeals = [...deals].sort((a, b) => {
+    if (sortConfig.key === 'price') {
+      return sortConfig.direction === 'asc' 
+        ? a.price - b.price 
+        : b.price - a.price;
+    }
+    
+    if (sortConfig.key === 'purchaseDate' || sortConfig.key === 'expiryDate') {
+      const dateA = new Date(a[sortConfig.key] || 0);
+      const dateB = new Date(b[sortConfig.key] || 0);
+      return sortConfig.direction === 'asc' 
+        ? dateA - dateB 
+        : dateB - dateA;
+    }
+    
+    if (a[sortConfig.key] < b[sortConfig.key]) {
+      return sortConfig.direction === 'asc' ? -1 : 1;
+    }
+    if (a[sortConfig.key] > b[sortConfig.key]) {
+      return sortConfig.direction === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+  
+  // Handle delete confirmation
+  const handleDeleteClick = (dealId) => {
+    setShowConfirmDelete(dealId);
+  };
+  
+  const confirmDelete = (dealId) => {
+    deleteDeal(dealId);
+    setShowConfirmDelete(null);
+  };
+  
+  const cancelDelete = () => {
+    setShowConfirmDelete(null);
+  };
+
+  // Handle favorite toggle
+  const handleFavoriteToggle = (dealId) => {
+    toggleFavorite(dealId);
+  };
+  
   return (
-    <div className="overflow-x-auto rounded-lg border border-surface-200 dark:border-surface-700">
-      <table className="min-w-full divide-y divide-surface-200 dark:divide-surface-700">
-        <thead className="bg-surface-50 dark:bg-surface-800">
+    <div className="overflow-x-auto">
+      <table className="min-w-full bg-white dark:bg-surface-800 rounded-lg overflow-hidden">
+        <thead className="bg-surface-50 dark:bg-surface-700 text-surface-500 dark:text-surface-300">
           <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">
-              <button 
-                onClick={() => handleSort('name')} 
-                className="flex items-center gap-1 hover:text-primary dark:hover:text-primary-light transition"
-              >
-                Deal Name {getSortIcon('name')}
-              </button>
+            <th className="p-3 text-left font-medium">
+              <span className="sr-only">Favorite</span>
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">
-              <button 
-                onClick={() => handleSort('marketplace')} 
-                className="flex items-center gap-1 hover:text-primary dark:hover:text-primary-light transition"
-              >
-                Marketplace {getSortIcon('marketplace')}
-              </button>
+            <th 
+              className="p-3 text-left font-medium cursor-pointer" 
+              onClick={() => requestSort('name')}
+            >
+              <div className="flex items-center gap-1">
+                <span>Deal</span>
+                <ArrowUpDown size={14} />
+              </div>
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">
-              <button 
-                onClick={() => handleSort('price')} 
-                className="flex items-center gap-1 hover:text-primary dark:hover:text-primary-light transition"
-              >
-                Price {getSortIcon('price')}
-              </button>
+            <th 
+              className="p-3 text-left font-medium cursor-pointer" 
+              onClick={() => requestSort('marketplace')}
+            >
+              <div className="flex items-center gap-1">
+                <span>Marketplace</span>
+                <ArrowUpDown size={14} />
+              </div>
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">
-              <button 
-                onClick={() => handleSort('purchaseDate')} 
-                className="flex items-center gap-1 hover:text-primary dark:hover:text-primary-light transition"
-              >
-                Purchase Date {getSortIcon('purchaseDate')}
-              </button>
+            <th 
+              className="p-3 text-left font-medium cursor-pointer" 
+              onClick={() => requestSort('price')}
+            >
+              <div className="flex items-center gap-1">
+                <span>Price</span>
+                <ArrowUpDown size={14} />
+              </div>
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">
-              <button 
-                onClick={() => handleSort('status')} 
-                className="flex items-center gap-1 hover:text-primary dark:hover:text-primary-light transition"
-              >
-                Status {getSortIcon('status')}
-              </button>
+            <th 
+              className="p-3 text-left font-medium cursor-pointer" 
+              onClick={() => requestSort('purchaseDate')}
+            >
+              <div className="flex items-center gap-1">
+                <span>Purchase Date</span>
+                <ArrowUpDown size={14} />
+              </div>
             </th>
-            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">
-              Actions
+            <th 
+              className="p-3 text-left font-medium cursor-pointer" 
+              onClick={() => requestSort('status')}
+            >
+              <div className="flex items-center gap-1">
+                <span>Status</span>
+                <ArrowUpDown size={14} />
+              </div>
             </th>
+            <th className="p-3 text-right font-medium">Actions</th>
           </tr>
         </thead>
-        <tbody className="bg-white dark:bg-surface-800 divide-y divide-surface-200 dark:divide-surface-700">
+        <tbody className="divide-y divide-surface-100 dark:divide-surface-700">
           {sortedDeals.map((deal) => (
-            <tr key={deal.id} className="hover:bg-surface-50 dark:hover:bg-surface-700/50 transition">
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center">
-                  {deal.favorite && (
-                    <Star size={16} className="text-yellow-500 mr-2" fill="currentColor" />
-                  )}
-                  <div className="text-sm font-medium">{deal.name}</div>
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-surface-900 dark:text-surface-200">{deal.marketplace}</div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-surface-900 dark:text-surface-200">${deal.price}</div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-surface-900 dark:text-surface-200">{formatDate(deal.purchaseDate)}</div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <DealTagBadge status={deal.status} />
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
+            <tr 
+              key={deal.id} 
+              className="hover:bg-surface-50 dark:hover:bg-surface-700/50 transition"
+            >
+              <td className="p-3">
                 <button 
-                  onClick={() => toggleActions(deal.id)}
-                  className="text-surface-400 hover:text-surface-600 dark:text-surface-300 dark:hover:text-surface-100 transition"
-                  aria-label="More options"
+                  onClick={() => handleFavoriteToggle(deal.id)}
+                  className={`text-${deal.favorite ? 'yellow-500' : 'surface-400'} hover:text-yellow-500 transition`}
+                  aria-label={deal.favorite ? "Remove from favorites" : "Add to favorites"}
                 >
-                  <MoreHorizontal size={20} />
+                  {deal.favorite ? <Star size={18} fill="currentColor" /> : <StarOff size={18} />}
                 </button>
-                
-                {/* Actions Dropdown */}
-                {actionsOpenFor === deal.id && (
-                  <div className="absolute right-6 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-surface-700 ring-1 ring-black ring-opacity-5 z-10">
-                    <div className="py-1" role="menu" aria-orientation="vertical">
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-600 flex items-center gap-2"
-                        role="menuitem"
-                      >
-                        <Edit size={16} />
-                        Edit Deal
-                      </button>
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-600 flex items-center gap-2"
-                        role="menuitem"
-                      >
-                        <Download size={16} />
-                        Download Invoice
-                      </button>
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                        role="menuitem"
-                      >
-                        <Trash2 size={16} />
-                        Delete Deal
-                      </button>
-                    </div>
-                  </div>
-                )}
+              </td>
+              <td className="p-3 font-medium">
+                <Link to={`/deals/${deal.id}`} className="hover:text-primary dark:hover:text-primary-light transition">
+                  {deal.name}
+                </Link>
+              </td>
+              <td className="p-3 text-surface-600 dark:text-surface-400">{deal.marketplace}</td>
+              <td className="p-3 text-surface-600 dark:text-surface-400">${deal.price.toFixed(2)}</td>
+              <td className="p-3 text-surface-600 dark:text-surface-400">{formatDate(deal.purchaseDate)}</td>
+              <td className="p-3">
+                <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeClass(deal.status)}`}>
+                  {deal.status}
+                </span>
+              </td>
+              <td className="p-3 text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <Link 
+                    to={`/deals/${deal.id}`}
+                    className="p-1 text-surface-500 hover:text-primary dark:text-surface-400 dark:hover:text-primary-light transition"
+                    aria-label="View deal details"
+                  >
+                    <Eye size={18} />
+                  </Link>
+                  <Link 
+                    to={`/deals/${deal.id}/edit`}
+                    className="p-1 text-surface-500 hover:text-blue-600 dark:text-surface-400 dark:hover:text-blue-400 transition"
+                    aria-label="Edit deal"
+                  >
+                    <Edit size={18} />
+                  </Link>
+                  <button 
+                    onClick={() => handleDeleteClick(deal.id)}
+                    className="p-1 text-surface-500 hover:text-red-600 dark:text-surface-400 dark:hover:text-red-400 transition"
+                    aria-label="Delete deal"
+                  >
+                    <Trash size={18} />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {/* Delete Confirmation Modal */}
+      {showConfirmDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-surface-800 rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-bold mb-4">Confirm Delete</h3>
+            <p className="text-surface-600 dark:text-surface-400 mb-6">
+              Are you sure you want to delete this deal? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={cancelDelete}
+                className="px-4 py-2 rounded-lg bg-surface-200 hover:bg-surface-300 dark:bg-surface-700 dark:hover:bg-surface-600 text-surface-700 dark:text-surface-300 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => confirmDelete(showConfirmDelete)}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

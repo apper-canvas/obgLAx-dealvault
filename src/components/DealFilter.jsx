@@ -1,151 +1,209 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, X } from 'lucide-react';
 
 const DealFilter = ({ onFilterChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    status: 'all',
-    marketplace: 'all',
-    priceRange: 'all',
-    dateRange: 'all'
-  });
+  const [status, setStatus] = useState('all');
+  const [marketplace, setMarketplace] = useState('all');
+  const [priceRange, setPriceRange] = useState('all');
+  const [dateRange, setDateRange] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
 
-  const handleSearchChange = (e) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    onFilterChange({ searchTerm: value, ...filters });
-  };
+  // Marketplaces list for the filter
+  const marketplaces = [
+    { id: 'all', name: 'All Marketplaces' },
+    { id: 'appsumo', name: 'AppSumo' },
+    { id: 'dealmirror', name: 'DealMirror' },
+    { id: 'pitchground', name: 'PitchGround' },
+    { id: 'stacksocial', name: 'StackSocial' },
+    { id: 'dealify', name: 'Dealify' },
+    { id: 'other', name: 'Other' }
+  ];
 
-  const handleFilterChange = (key, value) => {
-    const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-    onFilterChange({ searchTerm, ...newFilters });
-  };
+  // Status options for the filter
+  const statuses = [
+    { id: 'all', name: 'All Statuses' },
+    { id: 'active', name: 'Active' },
+    { id: 'inactive', name: 'Inactive' },
+    { id: 'refundable', name: 'Refundable' },
+    { id: 'expiring', name: 'Expiring Soon' },
+    { id: 'expired', name: 'Expired' }
+  ];
 
-  const clearFilters = () => {
-    const resetFilters = {
-      status: 'all',
-      marketplace: 'all',
-      priceRange: 'all',
-      dateRange: 'all'
+  // Price range options
+  const priceRanges = [
+    { id: 'all', name: 'All Prices' },
+    { id: '0-50', name: 'Under $50' },
+    { id: '50-100', name: '$50 - $100' },
+    { id: '100-200', name: '$100 - $200' },
+    { id: '200-500', name: '$200 - $500' },
+    { id: '500-+', name: 'Over $500' }
+  ];
+
+  // Date range options
+  const dateRanges = [
+    { id: 'all', name: 'All Time' },
+    { id: 'last-30', name: 'Last 30 Days' },
+    { id: 'last-90', name: 'Last 90 Days' },
+    { id: 'this-year', name: 'This Year' },
+    { id: 'last-year', name: 'Last Year' }
+  ];
+
+  // Update filters
+  useEffect(() => {
+    const filterOptions = {
+      searchTerm,
+      status,
+      marketplace,
+      priceRange,
+      dateRange
     };
-    setFilters(resetFilters);
-    setSearchTerm('');
-    onFilterChange({ searchTerm: '', ...resetFilters });
+    
+    onFilterChange(filterOptions);
+  }, [searchTerm, status, marketplace, priceRange, dateRange, onFilterChange]);
+
+  // Handle search input changes
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
   };
 
-  const toggleFilter = () => {
-    setFilterOpen(!filterOpen);
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatus('all');
+    setMarketplace('all');
+    setPriceRange('all');
+    setDateRange('all');
   };
+
+  // Count active filters
+  const activeFilterCount = [
+    status !== 'all',
+    marketplace !== 'all',
+    priceRange !== 'all',
+    dateRange !== 'all'
+  ].filter(Boolean).length;
 
   return (
     <div className="mb-6">
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
-        {/* Search Box */}
-        <div className="relative flex-grow">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+      {/* Search and Filter Toggle */}
+      <div className="flex flex-col md:flex-row gap-4 mb-4">
+        <div className="flex-grow relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
             <Search size={18} className="text-surface-400" />
           </div>
           <input
             type="text"
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full py-2 px-10 border border-surface-200 dark:border-surface-700 rounded-lg bg-white dark:bg-surface-800 focus:ring-2 focus:ring-primary focus:border-transparent"
             placeholder="Search deals..."
             value={searchTerm}
             onChange={handleSearchChange}
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-surface-400 hover:text-surface-600"
+              aria-label="Clear search"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
-
-        {/* Filter Toggle Button */}
         <button
-          onClick={toggleFilter}
-          className="px-4 py-2 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700 flex items-center gap-2 transition"
+          onClick={() => setShowFilters(!showFilters)}
+          className="btn btn-outline flex items-center gap-2"
         >
           <Filter size={18} />
-          <span className="font-medium">Filters</span>
+          <span>Filters</span>
+          {activeFilterCount > 0 && (
+            <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-primary text-white rounded-full">
+              {activeFilterCount}
+            </span>
+          )}
         </button>
-
-        {/* Filter Clear Button - Only show if filters are applied */}
-        {(filters.status !== 'all' || filters.marketplace !== 'all' || filters.priceRange !== 'all' || filters.dateRange !== 'all' || searchTerm) && (
-          <button
-            onClick={clearFilters}
-            className="px-4 py-2 rounded-lg bg-surface-100 dark:bg-surface-700 hover:bg-surface-200 dark:hover:bg-surface-600 flex items-center gap-2 transition text-surface-700 dark:text-surface-300"
-          >
-            <X size={16} />
-            <span className="font-medium">Clear</span>
-          </button>
-        )}
       </div>
 
       {/* Filter Panel */}
-      {filterOpen && (
-        <div className="mt-4 p-4 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg">
+      {showFilters && (
+        <div className="p-4 bg-surface-50 dark:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-700 mb-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Status Filter */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-surface-700 dark:text-surface-300">Status</label>
+              <label htmlFor="statusFilter" className="block mb-1 text-sm font-medium text-surface-700 dark:text-surface-300">
+                Status
+              </label>
               <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full p-2 rounded-md border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800"
+                id="statusFilter"
+                className="w-full form-select"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
               >
-                <option value="all">All Statuses</option>
-                <option value="active">Active</option>
-                <option value="expired">Expired</option>
-                <option value="expiring soon">Expiring Soon</option>
-                <option value="refundable">Refundable</option>
-                <option value="inactive">Inactive</option>
+                {statuses.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
               </select>
             </div>
 
             {/* Marketplace Filter */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-surface-700 dark:text-surface-300">Marketplace</label>
+              <label htmlFor="marketplaceFilter" className="block mb-1 text-sm font-medium text-surface-700 dark:text-surface-300">
+                Marketplace
+              </label>
               <select
-                value={filters.marketplace}
-                onChange={(e) => handleFilterChange('marketplace', e.target.value)}
-                className="w-full p-2 rounded-md border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800"
+                id="marketplaceFilter"
+                className="w-full form-select"
+                value={marketplace}
+                onChange={(e) => setMarketplace(e.target.value)}
               >
-                <option value="all">All Marketplaces</option>
-                <option value="appsumo">AppSumo</option>
-                <option value="stacksocial">StackSocial</option>
-                <option value="dealmirror">DealMirror</option>
-                <option value="pitchground">PitchGround</option>
-                <option value="dealfy">Dealfy</option>
+                {marketplaces.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
               </select>
             </div>
 
             {/* Price Range Filter */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-surface-700 dark:text-surface-300">Price Range</label>
+              <label htmlFor="priceFilter" className="block mb-1 text-sm font-medium text-surface-700 dark:text-surface-300">
+                Price Range
+              </label>
               <select
-                value={filters.priceRange}
-                onChange={(e) => handleFilterChange('priceRange', e.target.value)}
-                className="w-full p-2 rounded-md border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800"
+                id="priceFilter"
+                className="w-full form-select"
+                value={priceRange}
+                onChange={(e) => setPriceRange(e.target.value)}
               >
-                <option value="all">All Prices</option>
-                <option value="0-50">$0 - $50</option>
-                <option value="51-100">$51 - $100</option>
-                <option value="101-200">$101 - $200</option>
-                <option value="201+">$201+</option>
+                {priceRanges.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
               </select>
             </div>
 
             {/* Date Range Filter */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-surface-700 dark:text-surface-300">Purchase Date</label>
+              <label htmlFor="dateFilter" className="block mb-1 text-sm font-medium text-surface-700 dark:text-surface-300">
+                Purchase Date
+              </label>
               <select
-                value={filters.dateRange}
-                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-                className="w-full p-2 rounded-md border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800"
+                id="dateFilter"
+                className="w-full form-select"
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
               >
-                <option value="all">All Time</option>
-                <option value="last-30">Last 30 Days</option>
-                <option value="last-90">Last 90 Days</option>
-                <option value="last-year">Last Year</option>
-                <option value="this-year">This Year</option>
+                {dateRanges.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
               </select>
             </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-surface-600 hover:text-primary dark:text-surface-400 dark:hover:text-primary-light"
+            >
+              <X size={16} />
+              <span>Clear filters</span>
+            </button>
           </div>
         </div>
       )}
