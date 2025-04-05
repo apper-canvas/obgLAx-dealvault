@@ -38,8 +38,8 @@ const EditDeal = () => {
   
   const handleSubmit = async (updatedData) => {
     try {
-      // Update the deal
-      await updateDeal(id, updatedData);
+      // Update the deal with the parsed ID
+      await updateDeal(parseInt(id), updatedData);
       return true;
     } catch (err) {
       setError('Failed to update deal. Please try again.');
